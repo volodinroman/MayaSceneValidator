@@ -5,6 +5,7 @@ import maya.cmds as cmds
 
 from MayaSceneValidator.core.resources import Resources
 from MayaSceneValidator.core.common import log
+from MayaSceneValidator.gui.ruleWidget.ruleWidget import RuleWidget
 
 
 class ValidatorGUI(MayaQWidgetDockableMixin, QtWidgets.QDockWidget):
@@ -37,16 +38,19 @@ class ValidatorGUI(MayaQWidgetDockableMixin, QtWidgets.QDockWidget):
         self.buttons_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.addLayout(self.buttons_layout)
 
+        # pre-scroll creation
+        self.scroll_layout = QtWidgets.QVBoxLayout()
+
         # button run
         self.button_run = QtWidgets.QPushButton("Start Validator")
         self.button_run.setFixedHeight(32)
-        self.button_run.clicked.connect(self.run_validator())
+        self.button_run.clicked.connect(self.run_validator)
         self.buttons_layout.addWidget(self.button_run)
 
         # button fix
         self.button_fix = QtWidgets.QPushButton("Fix Failed Checks")
         self.button_fix.setFixedHeight(32)
-        self.button_fix.clicked.connect(self.fix_validator())
+        self.button_fix.clicked.connect(self.fix_validator)
         self.buttons_layout.addWidget(self.button_fix)
 
         # presets
@@ -72,28 +76,102 @@ class ValidatorGUI(MayaQWidgetDockableMixin, QtWidgets.QDockWidget):
         self.scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.scroll_area_widget = QtWidgets.QWidget()
         self.scroll_area.setWidget(self.scroll_area_widget)
-        self.scroll_layout = QtWidgets.QVBoxLayout()
+
         self.scroll_layout.setAlignment(QtCore.Qt.AlignTop)
         self.scroll_layout.setContentsMargins(0, 0, 0, 0)
         self.scroll_layout.setSpacing(5)  # layout
         self.scroll_area_widget.setLayout(self.scroll_layout)
         self.main_layout.addWidget(self.scroll_area)
 
-        # test
-        for i in range(20):
-            b = QtWidgets.QPushButton("test {}".format(i))
-            self.scroll_layout.addWidget(b)
+        # some initial data in scrollArea
+        self.help_label = QtWidgets.QLabel("Press 'Run' to validate the scene")
+        self.scroll_layout.addWidget(self.help_label)
+
 
     def save_config_preset(self, text):
         self.resources.save_current_preset(text)
         log(message="config.ini saved. New preset is {}".format(text))
 
+    def clean_scroll(self, rule_name=None):
+        if self.scroll_layout:
+            if self.scroll_layout.count() > 0:
+                for i in range(0, self.scroll_layout.count()):
+                    item = self.scroll_layout.itemAt(i)
+                    widget = item.widget()
+
+                    if rule_name:
+                        if rule_name==widget.get_rule_name():
+                            widget.deleteLater()
+                    else:
+                        widget.deleteLater()
 
     def run_validator(self):
-        pass
+        log(message="Run...")
 
-    def fix_validator(self):
-        pass
+        rules = self.resources.get_current_preset_rules()
+
+        self.clean_scroll()
+
+        for i in rules:
+            log(message="{} run".format(i), category="Rule")
+
+            cmd = "from MayaSceneValidator.rules.{}.rule import Rule".format(i)
+            exec(cmd)
+
+            rule = Rule()
+            rule_name = rule.rule_name
+            rule_description = rule.rule_description
+            rule_output = rule.check()
+
+            if rule_output:
+                rule_widget = RuleWidget(rule_instance=rule)
+                rule_widget.set_rule_name(rule_name)
+                rule_widget.set_rule_description(rule_description)
+                rule_widget.signal_validator_run.connect(self.run_rule)
+                rule_widget.signal_validator_fix.connect(self.fix_validator)
+
+                for j in rule_output:
+                    rule_widget.add_invalid_object(j)
+
+                self.scroll_layout.addWidget(rule_widget)
+
+
+    def fix_validator(self, rule_name):
+        if self.scroll_layout:
+            if self.scroll_layout.count() > 0:
+                for i in range(0, self.scroll_layout.count()):
+                    item = self.scroll_layout.itemAt(i)
+                    widget = item.widget()
+                    name = widget.get_rule_name()
+
+                    if rule_name:
+                        if rule_name==name:
+                            result = widget.rule_run_fix()
+                            log(message="{} fix".format(name), category="Fix")
+                            if not result:
+                                self.clean_scroll(rule_name=name)
+                    else:
+                        result = widget.rule_run_fix()
+                        log(message="{} fix".format(name), category="Fix")
+                        if not result:
+                            self.clean_scroll(rule_name=name)
+
+    def run_rule(self, rule_name):
+        print "test"
+        if self.scroll_layout:
+            if self.scroll_layout.count() > 0:
+                for i in range(0, self.scroll_layout.count()):
+                    item = self.scroll_layout.itemAt(i)
+                    widget = item.widget()
+                    name = widget.get_rule_name()
+
+                    if rule_name == name:
+                        result = widget.rule_run_check()
+
+                        if not result:
+                            self.clean_scroll(rule_name=name)
+                        else:
+                            widget.recreate_list(new_list=result)
 
 
 def create_gui():
