@@ -1,17 +1,29 @@
 import os
-from MayaSceneValidator.core.resources import Resources
+from MayaSceneValidator.gui.main_gui import ValidatorGUI, create_gui
+
 root_ = os.path.dirname(__file__)
 
+
 class Validator(object):
-    def __init__(self):
-        self.resources = Resources()
+
+    GUI_MODE = 0
+    BATCH_MODE = 1
+
+    def __init__(self, mode):
+
+        if mode == Validator.GUI_MODE:
+            create_gui()
+        elif mode == Validator.BATCH_MODE:
+            pass  # batch mode
+
+
 
 
 
 
 def main():
-    v = Validator()
+    v = Validator(mode=Validator.GUI_MODE)
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

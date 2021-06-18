@@ -7,7 +7,19 @@ root_ = os.path.dirname(__file__)
 project_root_ = os.path.dirname(root_)
 
 class Resources(object):
+    __instance__ = None
+
+    @staticmethod
+    def get_instance():
+        if not Resources.__instance__:
+            Resources()
+        return Resources.__instance__
+
     def __init__(self):
+        if Resources.__instance__ is None:
+            Resources.__instance__ = self
+        else:
+            raise Exception("Error Singleton")
 
         self.config_path = os.path.join(project_root_, "config.ini") # config.ini path
         self.preset_root = os.path.join(project_root_, "presets") # presets folder path
